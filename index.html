@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>NPC-jakt kart</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div>
+      <h1>NPC<span>-jakt</span></h1>
+      <p class="sub">Trykk på en rute for å krysse den av som sjekket. Bytt til «Punkt» for å merke et bestemt sted.</p>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="sTotal">0</b><small>Steder</small></div>
+      <div class="stat"><b id="sDone">0</b><small>Sjekket</small></div>
+      <div class="stat"><b id="sLeft">0</b><small>Igjen</small></div>
+    </div>
+    <div class="bar"><i id="prog"></i></div>
+    <div class="cellstat" id="cellStat"></div>
+    <div class="seg" id="modes" role="group" aria-label="Verktøy">
+      <button class="btn on" type="button" data-mode="cell" aria-pressed="true">Kryss av ruter</button>
+      <button class="btn" type="button" data-mode="pin" aria-pressed="false">Punkt</button>
+      <button class="btn" type="button" data-mode="pan" aria-pressed="false">Flytt</button>
+    </div>
+    <div class="tools">
+      <select id="gridSize" class="btn" aria-label="Størrelse på rutenett"></select>
+      <button class="btn danger" id="cellReset" type="button">Nullstill ruter</button>
+      <label class="btn" for="file">Last inn kart</label>
+      <input type="file" id="file" accept="image/*" hidden>
+      <button class="btn" id="lblBtn" type="button">Navn: på</button>
+      <button class="btn" id="ioBtn" type="button">Lagre / hent</button>
+    </div>
+    <div class="filters">
+      <input id="q" type="search" placeholder="Søk etter sted eller notat">
+      <select id="flt" aria-label="Filter">
+        <option value="all">Alle</option>
+        <option value="todo">Ikke sjekket</option>
+        <option value="done">Sjekket</option>
+      </select>
+    </div>
+    <div class="example" id="exNote" hidden>Eksempelpunkter vises. Last inn kartet ditt og slett dem, eller trykk <button class="btn" id="clearEx" type="button" style="padding:2px 6px;font-size:11px">Fjern eksempler</button></div>
+    <ul class="list" id="list"></ul>
+  </aside>
+
+  <main id="main">
+    <div class="viewport adding" id="vp">
+      <div class="stage" id="stage">
+        <img id="mapImg" alt="Kart">
+        <svg class="grid" id="grid"></svg>
+        <div id="pins"></div>
+      </div>
+    </div>
+    <div class="hint" id="hint">Last inn et skjermbilde av GTA V-kartet med «Last inn kart», eller lim det inn med Ctrl+V.</div>
+    <div class="coords" id="coords">—</div>
+    <div class="hud">
+      <button type="button" id="zin" aria-label="Zoom inn">+</button>
+      <button type="button" id="zout" aria-label="Zoom ut">−</button>
+      <button type="button" id="zfit" aria-label="Tilpass" style="font-size:13px">⤢</button>
+    </div>
+    <div class="sheet" id="sheet" hidden>
+      <h2><span id="shTitle">Sted</span><span class="cell" id="shCell"></span></h2>
+      <label>Navn<input id="shName" type="text" maxlength="60"></label>
+      <label>Notat<textarea id="shNote" placeholder="F.eks. sjekket kl 21, ingen NPC"></textarea></label>
+      <div class="row">
+        <button class="btn" id="shToggle" type="button">Marker sjekket</button>
+        <span class="grow"></span>
+        <button class="btn danger" id="shDel" type="button">Slett</button>
+        <button class="btn on" id="shClose" type="button">Ferdig</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal" id="io" hidden>
+  <div class="box">
+    <h2>Lagre eller hent punkter</h2>
+    <p>Punktene lagres automatisk i denne nettleseren. Kopier teksten under for å ta vare på dem eller dele med andre, eller lim inn en tidligere kopi og trykk «Hent inn».</p>
+    <textarea id="ioText" spellcheck="false"></textarea>
+    <div class="row" style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn" id="ioCopy" type="button">Kopier</button>
+      <button class="btn" id="ioLoad" type="button">Hent inn</button>
+      <span style="flex:1"></span>
+      <button class="btn danger" id="ioReset" type="button">Slett alle punkter</button>
+      <button class="btn on" id="ioClose" type="button">Lukk</button>
+    </div>
+    <p id="ioMsg"></p>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
