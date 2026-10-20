@@ -11,7 +11,18 @@ Interaktivt kart for GTA RP: last inn et kartbilde, sett nåler og kryss av sted
 Åpne `index.html` direkte i nettleseren, eller bruk utvidelsen **Live Server** i VS Code
 (høyreklikk `index.html` → *Open with Live Server*) for automatisk oppdatering når du lagrer.
 
-## Lagring
+## Felles rom (Firebase)
+Åpne siden med `?rom=<kode>` (eller skriv en romkode i feltet øverst) for å dele data live
+med alle som har samme kode. Ruter, punkter og rutenett-størrelse lagres da i
+Firebase Realtime Database under `rooms/<kode>`. Uten romkode brukes lokal lagring som før.
+
+Databasereglene ligger i `database.rules.json`. Lim dem inn under
+Realtime Database → *Rules* i Firebase-konsollen og trykk *Publish*.
+
+## Kartbilde
+Legg kartet i repoet som `map.jpg`, `map.png` eller `map.webp`, så lastes det for alle.
+
+## Lokal lagring (uten rom)
 - Punkter lagres i `localStorage` (nøkkel `npcjakt.pins.v1`).
 - Sjekkede ruter lagres i `localStorage` (nøkkel `npcjakt.cells.v1`), separat for hver rutenett-størrelse.
 - Kartbildet lagres i IndexedDB (database `npcjakt`).
