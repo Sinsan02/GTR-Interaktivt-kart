@@ -15,6 +15,19 @@
       <h1>NPC<span>-jakt</span></h1>
       <p class="sub">Trykk på en rute for å krysse den av som sjekket. Bytt til «Punkt» for å merke et bestemt sted.</p>
     </div>
+    <div class="room">
+      <form id="roomForm">
+        <input id="roomIn" type="text" maxlength="40" placeholder="Romkode, f.eks. bande123" aria-label="Romkode" autocomplete="off">
+        <button class="btn on" type="submit">Bli med</button>
+      </form>
+      <p class="roommsg" id="roomMsg">Del en romkode med gjengen, så ser alle de samme rutene live.</p>
+      <div class="roomon" id="roomOn" hidden>
+        <span class="dot" id="roomDot"></span>
+        <span class="grow">Rom <b id="roomName"></b> · <span id="roomState"></span></span>
+        <button class="btn" id="roomCopy" type="button">Kopier lenke</button>
+        <button class="btn" id="roomLeave" type="button">Forlat</button>
+      </div>
+    </div>
     <div class="stats">
       <div class="stat"><b id="sTotal">0</b><small>Steder</small></div>
       <div class="stat"><b id="sDone">0</b><small>Sjekket</small></div>
@@ -92,6 +105,8 @@
   </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

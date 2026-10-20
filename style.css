@@ -34,6 +34,16 @@ h1 { font-family: var(--f-display); font-weight: 700; font-size: 22px; margin: 0
 h1 span { color: var(--accent); }
 .sub { color: var(--muted); margin: 2px 0 0; font-size: 13px; }
 
+.room form { display: flex; gap: 6px; }
+.room input { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; }
+.roommsg { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+.roommsg:empty { display: none; }
+.roomon { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; }
+.roomon .grow { flex: 1; min-width: 0; }
+.roomon b { color: var(--accent); font-family: var(--f-mono); font-weight: 500; }
+.roomon .btn { padding: 4px 8px; font-size: 12px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--todo); flex: none; }
+.dot.ok { background: var(--done); box-shadow: 0 0 0 3px rgba(95,191,106,.2); }
 .stats { display: flex; gap: 8px; }
 .stat { flex: 1; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
 .stat b { display: block; font-family: var(--f-mono); font-size: 18px; font-variant-numeric: tabular-nums; }

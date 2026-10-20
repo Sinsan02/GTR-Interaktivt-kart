@@ -29,6 +29,55 @@
   const saveImg = d => idb('readwrite', s => s.put(d, 'map'));
   const loadImg = () => idb('readonly', s => s.get('map'));
 
+  // ---------- shared room (Firebase) ----------
+  // With ?rom=<kode> everything is read from and written to Firebase, live for everyone in that room.
+  // Without a room the app falls back to this browser's localStorage.
+  const FB_CONFIG = {
+    apiKey: 'AIzaSyBr2M1ZGau-oTiHFc0Rrl41oK_Go5j0hOw',
+    authDomain: 'gta-rp-iteraktivt-kart.firebaseapp.com',
+    databaseURL: 'https://gta-rp-iteraktivt-kart-default-rtdb.europe-west1.firebasedatabase.app',
+    projectId: 'gta-rp-iteraktivt-kart',
+    storageBucket: 'gta-rp-iteraktivt-kart.firebasestorage.app',
+    messagingSenderId: '344432186393',
+    appId: '1:344432186393:web:7400af38740c3d5cb3c688',
+  };
+  const LSR = 'npcjakt.room';
+  const roomOf = s => String(s || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 40);
+  let room = roomOf(new URLSearchParams(location.search).get('rom'));
+  if (!room) try { room = roomOf(localStorage.getItem(LSR)); } catch (e) {}
+  let roomRef = null, cellsRef = null;
+
+  const pinData = p => ({ x: p.x, y: p.y, name: p.name, note: p.note || '', done: !!p.done, t: p.t || 0 });
+  function savePin(p) { if (roomRef) roomRef.child('pins/' + p.id).set(pinData(p)); else save(); }
+  function removePin(id) { if (roomRef) roomRef.child('pins/' + id).remove(); else save(); }
+  function saveAllPins() { if (roomRef) roomRef.child('pins').set(Object.fromEntries(pins.map(p => [p.id, pinData(p)]))); else save(); }
+  function saveCell(k) { if (roomRef) roomRef.child(`cells/${COLS}/${k}`).set(cells.has(k) || null); else saveCells(); }
+  function clearCells() { if (roomRef) roomRef.child(`cells/${COLS}`).remove(); else saveCells(); }
+  function saveAllCells() {
+    if (!roomRef) return saveCells();
+    roomRef.child('cells').set(Object.fromEntries(Object.entries(cellStore).map(([n, a]) => [n, Object.fromEntries(a.map(k => [k, true]))])));
+  }
+
+  function setStatus(text, ok) { $('roomState').textContent = text; $('roomDot').classList.toggle('ok', !!ok); }
+  function watchCells() {
+    if (cellsRef) cellsRef.off();
+    cells = new Set();
+    cellsRef = roomRef.child('cells/' + COLS);
+    cellsRef.on('value', s => { cells = new Set(Object.keys(s.val() || {})); cellStore[COLS] = [...cells]; drawCells(); });
+  }
+  function joinRoom() {
+    firebase.initializeApp(FB_CONFIG);
+    const db = firebase.database();
+    roomRef = db.ref('rooms/' + room);
+    db.ref('.info/connected').on('value', s => setStatus(s.val() ? 'live' : 'kobler til…', s.val()));
+    roomRef.child('settings/cols').on('value', s => { const n = +s.val(); if (GRID_SIZES.includes(n) && n !== COLS) setGridSize(n, true); });
+    watchCells();
+    roomRef.child('pins').on('value', s => {
+      pins = Object.entries(s.val() || {}).map(([id, p]) => ({ id, ...p })).sort((a, b) => (a.t || 0) - (b.t || 0));
+      if (sel && !pins.some(p => p.id === sel)) select(null); else render();
+    }, () => setStatus('ingen tilgang – sjekk databasereglene', false));
+  }
+
   // ---------- placeholder map ----------
   function placeholder() {
     const c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -76,18 +125,21 @@
     const cw = W / COLS, rh = H / ROWS;
     let s = '';
     cells.forEach(k => { const [c, r] = k.split(',').map(Number); if (c < COLS && r < ROWS) s += `<rect x="${c*cw}" y="${r*rh}" width="${cw}" height="${rh}"/>`; });
-    $('gCells').innerHTML = s;
+    if ($('gCells')) $('gCells').innerHTML = s;
     const total = COLS * ROWS, n = [...cells].filter(k => { const [c, r] = k.split(',').map(Number); return c < COLS && r < ROWS; }).length;
     $('cellStat').textContent = `Ruter sjekket: ${n} / ${total} (${(n / total * 100).toFixed(1)} %)`;
   }
   function toggleCell(x, y) {
     const { c, r } = cellIdx(x, y), k = c + ',' + r;
     cells.has(k) ? cells.delete(k) : cells.add(k);
-    saveCells(); drawCells();
+    saveCell(k); drawCells();
   }
-  function setGridSize(n) {
-    COLS = n; cells = new Set(cellStore[n] || []);
-    try { localStorage.setItem(LSG, n); } catch (e) {}
+  // in a room the grid size is shared: write it, and let the listener apply it for everyone
+  function setGridSize(n, fromRoom) {
+    if (roomRef && !fromRoom) { roomRef.child('settings/cols').set(n); return; }
+    COLS = n; $('gridSize').value = n;
+    if (roomRef) watchCells();
+    else { cells = new Set(cellStore[n] || []); try { localStorage.setItem(LSG, n); } catch (e) {} }
     drawGrid(); render();
   }
 
@@ -167,8 +219,8 @@
   const uid = () => Math.random().toString(36).slice(2, 9);
   function addPin(x, y) {
     const n = pins.length + 1;
-    const p = { id: uid(), x, y, name: `Sted ${n}`, note: '', done: false };
-    pins.push(p); save(); render(); select(p.id, true);
+    const p = { id: uid(), x, y, name: `Sted ${n}`, note: '', done: false, t: Date.now() };
+    pins.push(p); savePin(p); render(); select(p.id, true);
   }
   function select(id, focusName) {
     sel = id;
@@ -217,15 +269,15 @@
   pinsEl.addEventListener('click', e => { const b = e.target.closest('[data-id]'); if (b) select(b.dataset.id); });
   $('list').addEventListener('click', e => {
     const c = e.target.closest('[data-chk]');
-    if (c) { const p = pins.find(q => q.id === c.dataset.chk); p.done = !p.done; save(); if (sel === p.id) select(p.id); else render(); return; }
+    if (c) { const p = pins.find(q => q.id === c.dataset.chk); p.done = !p.done; savePin(p); if (sel === p.id) select(p.id); else render(); return; }
     const g = e.target.closest('[data-go]');
     if (g) { const p = pins.find(q => q.id === g.dataset.go); select(p.id); centerOn(p); }
   });
-  $('shName').addEventListener('input', e => { const p = pins.find(q => q.id === sel); if (p) { p.name = e.target.value || 'Uten navn'; delete p.ex; save(); render(); } });
-  $('shNote').addEventListener('input', e => { const p = pins.find(q => q.id === sel); if (p) { p.note = e.target.value; save(); render(); } });
+  $('shName').addEventListener('input', e => { const p = pins.find(q => q.id === sel); if (p) { p.name = e.target.value || 'Uten navn'; delete p.ex; savePin(p); render(); } });
+  $('shNote').addEventListener('input', e => { const p = pins.find(q => q.id === sel); if (p) { p.note = e.target.value; savePin(p); render(); } });
   $('shName').addEventListener('keydown', e => { if (e.key === 'Enter') select(null); });
-  $('shToggle').addEventListener('click', () => { const p = pins.find(q => q.id === sel); if (p) { p.done = !p.done; save(); select(p.id); } });
-  $('shDel').addEventListener('click', () => { pins = pins.filter(q => q.id !== sel); save(); select(null); });
+  $('shToggle').addEventListener('click', () => { const p = pins.find(q => q.id === sel); if (p) { p.done = !p.done; savePin(p); select(p.id); } });
+  $('shDel').addEventListener('click', () => { const id = sel; pins = pins.filter(q => q.id !== id); removePin(id); select(null); });
   $('shClose').addEventListener('click', () => select(null));
   $('q').addEventListener('input', render); $('flt').addEventListener('change', render);
   $('clearEx').addEventListener('click', () => { pins = pins.filter(p => !p.ex); save(); select(null); });
@@ -243,7 +295,17 @@
   $('cellReset').addEventListener('click', () => {
     const btn = $('cellReset');
     if (!cellArmed) { cellArmed = true; btn.textContent = 'Trykk igjen'; setTimeout(() => { cellArmed = false; btn.textContent = 'Nullstill ruter'; }, 3000); return; }
-    cells.clear(); saveCells(); drawCells(); cellArmed = false; btn.textContent = 'Nullstill ruter';
+    cells.clear(); clearCells(); drawCells(); cellArmed = false; btn.textContent = 'Nullstill ruter';
+  });
+  $('roomForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const r = roomOf($('roomIn').value);
+    if (r) location.search = '?rom=' + r;
+  });
+  $('roomLeave').addEventListener('click', () => { try { localStorage.removeItem(LSR); } catch (e) {} location.href = location.pathname; });
+  $('roomCopy').addEventListener('click', () => {
+    const done = () => { $('roomCopy').textContent = 'Kopiert!'; setTimeout(() => $('roomCopy').textContent = 'Kopier lenke', 2000); };
+    navigator.clipboard?.writeText(location.href).then(done, () => prompt('Kopier lenken:', location.href)) ?? prompt('Kopier lenken:', location.href);
   });
   $('lblBtn').addEventListener('click', () => { labels = !labels; document.body.classList.toggle('nolabels', !labels); $('lblBtn').textContent = 'Navn: ' + (labels ? 'på' : 'av'); });
   $('zin').addEventListener('click', () => { const r = vp.getBoundingClientRect(); zoomAt(1.4, r.width/2, r.height/2); });
@@ -288,28 +350,46 @@
       if (v.cells && typeof v.cells === 'object') {
         cellStore = {};
         for (const [n, arr] of Object.entries(v.cells)) if (Array.isArray(arr)) cellStore[n] = arr.filter(k => /^\d+,\d+$/.test(k));
-        cells = new Set(cellStore[COLS] || []); saveCells(); drawCells();
+        cells = new Set(cellStore[COLS] || []); saveAllCells(); drawCells();
       }
-      save(); select(null); $('ioMsg').textContent = `Hentet inn ${pins.length} steder og ${cells.size} sjekkede ruter.`;
+      saveAllPins(); select(null); $('ioMsg').textContent = `Hentet inn ${pins.length} steder og ${cells.size} sjekkede ruter.`;
     } catch (e) { $('ioMsg').textContent = 'Teksten kunne ikke leses. Lim inn en kopi som er laget med «Kopier».'; }
   });
   let armed = false;
   $('ioReset').addEventListener('click', () => {
     if (!armed) { armed = true; $('ioReset').textContent = 'Trykk igjen for å slette'; setTimeout(() => { armed = false; $('ioReset').textContent = 'Slett alle punkter'; }, 3000); return; }
-    pins = []; save(); select(null); $('ioText').value = '[]'; $('ioMsg').textContent = 'Alle punkter er slettet.'; armed = false; $('ioReset').textContent = 'Slett alle punkter';
+    pins = []; saveAllPins(); select(null); $('ioText').value = '[]'; $('ioMsg').textContent = 'Alle punkter er slettet.'; armed = false; $('ioReset').textContent = 'Slett alle punkter';
   });
 
   // ---------- boot ----------
-  const stored = load();
-  pins = stored ?? [
-    { id: uid(), x: .44, y: .78, name: 'Torget (eksempel)', note: 'Ikke her kl 20', done: true, ex: true },
-    { id: uid(), x: .55, y: .72, name: 'Bryggen (eksempel)', note: '', done: false, ex: true },
-    { id: uid(), x: .5, y: .3, name: 'Fjellveien (eksempel)', note: 'Sjekk bak bensinstasjonen', done: false, ex: true },
-  ];
-  cellStore = loadCells();
-  try { const g = +localStorage.getItem(LSG); if (GRID_SIZES.includes(g)) COLS = g; } catch (e) {}
-  cells = new Set(cellStore[COLS] || []);
+  if (room && window.firebase) {
+    try { localStorage.setItem(LSR, room); } catch (e) {}
+    history.replaceState(null, '', '?rom=' + room);
+    $('roomName').textContent = room; $('roomOn').hidden = false; $('roomForm').hidden = true; $('roomMsg').textContent = '';
+    setStatus('kobler til…', false);
+    joinRoom();
+  } else {
+    if (room) $('roomMsg').textContent = 'Kunne ikke laste Firebase. Viser lokale data.';
+    const stored = load();
+    pins = stored ?? [
+      { id: uid(), x: .44, y: .78, name: 'Torget (eksempel)', note: 'Ikke her kl 20', done: true, ex: true },
+      { id: uid(), x: .55, y: .72, name: 'Bryggen (eksempel)', note: '', done: false, ex: true },
+      { id: uid(), x: .5, y: .3, name: 'Fjellveien (eksempel)', note: 'Sjekk bak bensinstasjonen', done: false, ex: true },
+    ];
+    cellStore = loadCells();
+    try { const g = +localStorage.getItem(LSG); if (GRID_SIZES.includes(g)) COLS = g; } catch (e) {}
+    cells = new Set(cellStore[COLS] || []);
+  }
   $('gridSize').value = COLS;
   window.addEventListener('resize', fit);
-  loadImg().then(d => { if (d) { $('hint').hidden = true; setMap(d, false); } else setMap(placeholder(), false); });
+  // a map committed to the repo wins, so everyone in a room sees the same map (and the same grid)
+  const MAP_FILES = ['map.jpg', 'map.png', 'map.webp'];
+  const findRepoMap = (i = 0) => new Promise(res => {
+    if (i >= MAP_FILES.length) return res(null);
+    const im = new Image(); im.onload = () => res(MAP_FILES[i]); im.onerror = () => findRepoMap(i + 1).then(res); im.src = MAP_FILES[i];
+  });
+  findRepoMap().then(u => {
+    if (u) { $('hint').hidden = true; setMap(u, false); return; }
+    loadImg().then(d => { if (d) { $('hint').hidden = true; setMap(d, false); } else setMap(placeholder(), false); });
+  });
 })();

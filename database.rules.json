@@ -1,0 +1,32 @@
+{
+  "rules": {
+    "rooms": {
+      "$room": {
+        ".read": "$room.matches(/^[a-z0-9_-]{1,40}$/)",
+        ".write": "$room.matches(/^[a-z0-9_-]{1,40}$/)",
+        "settings": {
+          "cols": { ".validate": "newData.val() == 20 || newData.val() == 40 || newData.val() == 60 || newData.val() == 80 || newData.val() == 120" },
+          "$other": { ".validate": false }
+        },
+        "cells": {
+          "$cols": {
+            "$cell": { ".validate": "$cell.matches(/^[0-9]{1,3},[0-9]{1,3}$/) && newData.val() == true" }
+          }
+        },
+        "pins": {
+          "$id": {
+            ".validate": "newData.hasChildren(['x', 'y', 'name'])",
+            "x": { ".validate": "newData.isNumber()" },
+            "y": { ".validate": "newData.isNumber()" },
+            "name": { ".validate": "newData.isString() && newData.val().length <= 60" },
+            "note": { ".validate": "newData.isString() && newData.val().length <= 1000" },
+            "done": { ".validate": "newData.isBoolean()" },
+            "t": { ".validate": "newData.isNumber()" },
+            "$other": { ".validate": false }
+          }
+        },
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}
