@@ -1,6 +1,6 @@
 (() => {
   const $ = id => document.getElementById(id);
-  const main = $('main'), vp = $('vp'), stage = $('stage'), img = $('mapImg'), pinsEl = $('pins'), grid = $('grid');
+  const vp = $('vp'), stage = $('stage'), img = $('mapImg'), pinsEl = $('pins'), grid = $('grid');
   const GRID_SIZES = [20, 40, 60, 80, 120];
   let COLS = 40, ROWS = 56;
   let W = 1000, H = 1400;
@@ -16,18 +16,6 @@
   // checked cells are stored per grid size, so switching size doesn't scramble them
   function saveCells() { cellStore[COLS] = [...cells]; try { localStorage.setItem(LSC, JSON.stringify(cellStore)); } catch (e) {} }
   function loadCells() { try { const v = JSON.parse(localStorage.getItem(LSC)); if (v && typeof v === 'object') return v; } catch (e) {} return {}; }
-  function idb(mode, fn) {
-    return new Promise(res => {
-      try {
-        const r = indexedDB.open('npcjakt', 1);
-        r.onupgradeneeded = () => r.result.createObjectStore('kv');
-        r.onsuccess = () => { try { const tx = r.result.transaction('kv', mode); const q = fn(tx.objectStore('kv')); q.onsuccess = () => res(q.result); q.onerror = () => res(null); } catch (e) { res(null); } };
-        r.onerror = () => res(null);
-      } catch (e) { res(null); }
-    });
-  }
-  const saveImg = d => idb('readwrite', s => s.put(d, 'map'));
-  const loadImg = () => idb('readonly', s => s.get('map'));
 
   // ---------- shared room (Firebase) ----------
   // With ?rom=<kode> everything is read from and written to Firebase, live for everyone in that room.
@@ -76,28 +64,6 @@
       pins = Object.entries(s.val() || {}).map(([id, p]) => ({ id, ...p })).sort((a, b) => (a.t || 0) - (b.t || 0));
       if (sel && !pins.some(p => p.id === sel)) select(null); else render();
     }, () => setStatus('ingen tilgang – sjekk databasereglene', false));
-  }
-
-  // ---------- placeholder map ----------
-  function placeholder() {
-    const c = document.createElement('canvas'); c.width = W; c.height = H;
-    const g = c.getContext('2d');
-    g.fillStyle = '#1d3a4a'; g.fillRect(0, 0, W, H);
-    // generic island blob
-    g.fillStyle = '#2b3b2f';
-    g.beginPath();
-    const pts = [[.42,.04],[.62,.08],[.78,.18],[.86,.32],[.8,.46],[.72,.58],[.66,.7],[.6,.84],[.48,.95],[.3,.93],[.2,.8],[.24,.66],[.16,.52],[.22,.36],[.28,.2]];
-    pts.forEach(([x,y],i) => i ? g.lineTo(x*W, y*H) : g.moveTo(x*W, y*H));
-    g.closePath(); g.fill();
-    g.fillStyle = '#3a4a3d';
-    g.beginPath(); g.ellipse(.5*W,.3*H,.18*W,.1*H,0.4,0,7); g.fill();
-    g.fillStyle = '#4a4f55';
-    g.beginPath(); g.ellipse(.42*W,.8*H,.14*W,.09*H,-0.3,0,7); g.fill();
-    g.fillStyle = 'rgba(227,232,230,.55)'; g.font = '600 34px "IBM Plex Sans", sans-serif'; g.textAlign = 'center';
-    g.fillText('Eksempelkart', W/2, H*.5);
-    g.font = '400 22px "IBM Plex Sans", sans-serif';
-    g.fillText('Last inn ditt eget skjermbilde av kartet', W/2, H*.5 + 36);
-    return c.toDataURL('image/png');
   }
 
   // ---------- grid ----------
@@ -314,24 +280,16 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { select(null); $('io').hidden = true; } });
 
   // ---------- map image ----------
-  function setMap(src, persist) {
+  // the map is fixed and committed to the repo, so everyone in a room sees the same map (and the same grid)
+  function setMap(src) {
     const im = new Image();
     im.onload = () => {
       W = im.naturalWidth; H = im.naturalHeight;
       img.src = src; img.width = W; img.height = H;
       drawGrid(); render(); fit();
-      if (persist) { saveImg(src); $('hint').hidden = true; }
     };
     im.src = src;
   }
-  function readFile(file) {
-    if (!file || !file.type.startsWith('image/')) return;
-    const r = new FileReader(); r.onload = () => setMap(r.result, true); r.readAsDataURL(file);
-  }
-  $('file').addEventListener('change', e => readFile(e.target.files[0]));
-  document.addEventListener('paste', e => { const it = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/')); if (it) readFile(it.getAsFile()); });
-  main.addEventListener('dragover', e => e.preventDefault());
-  main.addEventListener('drop', e => { e.preventDefault(); readFile(e.dataTransfer.files[0]); });
 
   // ---------- import / export ----------
   $('ioBtn').addEventListener('click', () => { $('ioText').value = JSON.stringify({ pins: pins.map(({ex, ...p}) => p), cells: cellStore }); $('ioMsg').textContent = ''; $('io').hidden = false; });
@@ -382,14 +340,5 @@
   }
   $('gridSize').value = COLS;
   window.addEventListener('resize', fit);
-  // a map committed to the repo wins, so everyone in a room sees the same map (and the same grid)
-  const MAP_FILES = ['map.jpg', 'map.png', 'map.webp'];
-  const findRepoMap = (i = 0) => new Promise(res => {
-    if (i >= MAP_FILES.length) return res(null);
-    const im = new Image(); im.onload = () => res(MAP_FILES[i]); im.onerror = () => findRepoMap(i + 1).then(res); im.src = MAP_FILES[i];
-  });
-  findRepoMap().then(u => {
-    if (u) { $('hint').hidden = true; setMap(u, false); return; }
-    loadImg().then(d => { if (d) { $('hint').hidden = true; setMap(d, false); } else setMap(placeholder(), false); });
-  });
+  setMap('map.webp');
 })();

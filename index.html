@@ -43,8 +43,6 @@
     <div class="tools">
       <select id="gridSize" class="btn" aria-label="Størrelse på rutenett"></select>
       <button class="btn danger" id="cellReset" type="button">Nullstill ruter</button>
-      <label class="btn" for="file">Last inn kart</label>
-      <input type="file" id="file" accept="image/*" hidden>
       <button class="btn" id="lblBtn" type="button">Navn: på</button>
       <button class="btn" id="ioBtn" type="button">Lagre / hent</button>
     </div>
@@ -56,7 +54,7 @@
         <option value="done">Sjekket</option>
       </select>
     </div>
-    <div class="example" id="exNote" hidden>Eksempelpunkter vises. Last inn kartet ditt og slett dem, eller trykk <button class="btn" id="clearEx" type="button" style="padding:2px 6px;font-size:11px">Fjern eksempler</button></div>
+    <div class="example" id="exNote" hidden>Eksempelpunkter vises. Slett dem, eller trykk <button class="btn" id="clearEx" type="button" style="padding:2px 6px;font-size:11px">Fjern eksempler</button></div>
     <ul class="list" id="list"></ul>
   </aside>
 
@@ -68,7 +66,6 @@
         <div id="pins"></div>
       </div>
     </div>
-    <div class="hint" id="hint">Last inn et skjermbilde av GTA V-kartet med «Last inn kart», eller lim det inn med Ctrl+V.</div>
     <div class="coords" id="coords">—</div>
     <div class="hud">
       <button type="button" id="zin" aria-label="Zoom inn">+</button>
